@@ -1,0 +1,441 @@
+---
+title: 'Global Terrorism: from 1970 to 2019'
+author: "Riccardo Bertoli"
+output:
+  ioslides_presentation:
+    css: main.css
+    incremental: yes
+editor_options: 
+  chunk_output_type: inline    
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = FALSE, message = FALSE, warning = FALSE)
+```
+## <b>Where does the data come from?</b> 
+<p>From a free open source database maintained by researchers at the National Consortium for the Study of Terrorism and Responses to Terrorism (START), headquartered at the University of Maryland. The data shows information that spans from 1970 until 2019.The last update was on the 17th September of 2019 and the are currently three versions of the data set. During the merging of the data to the servers the Consortium lost all 1993's data and other dates too. However they managed to recover all 1993's missing data so I combined the two sets.</p>
+```{r echo=FALSE}
+#librarys
+library(readxl)
+library(readr)
+library(tibble)
+library(magrittr)
+library(dplyr)
+library(ggplot2) #graphics
+library(plotly) #graphics
+library(fmsb) #for radar graphics
+library(wordcloud)#for wordcloud graphics
+library(treemap)#fro treempas graphics
+#read the data
+terrorism <-read_excel("gtd1970_2019update.xlsx",1)
+#system.time(terrorism <-read_excel("gtd1970_2019update.xlsx",1))
+dataset <- as_tibble(terrorism)
+#View(dataset)
+```
+```{r echo=FALSE}
+#what I'm focusing on
+#dataset with kills
+maink <-(dataset %>%
+        filter(nkill>0)%>%   
+        select(iyear,imonth,iday,country_txt,region_txt,latitude,longitude,provstate,city,attacktype1_txt,targtype1_txt,target1,gname,weaptype1_txt,nkill,nkillus))
+#dataset without kills
+main<-(dataset %>%
+      filter(nkill==0)%>%
+      select(iyear,imonth,iday,country_txt,region_txt,latitude,longitude,provstate,city,attacktype1_txt,targtype1_txt,target1,gname,weaptype1_txt,nkill))
+#maink
+#main
+```
+## Global Terrorism
+<p><b>The World situation seen by different points of view:</b></p>
+<p>A Globe map</p>
+```{r echo=FALSE}
+#world situation
+world <- map_data("world")
+#global terrorism graphic
+ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) + coord_fixed(1.3)+geom_point(data=maink,aes(x=longitude, y=latitude),color="red",size=0.5)+geom_point(data=main,aes(x=longitude, y=latitude),color="yellow",size=0.001)+labs(title="Global Terrorism")
+```
+<p>Two different graphics (function and barplot) showing the casualties through the years</p>
+```{r echo=FALSE}
+#worlddeath barplot/frequency
+#per group iyear
+years <- ( maink %>%
+           group_by(iyear) %>%
+           summarise(nkill=sum(nkill,na.rm = TRUE)))
+fig1<-plot_ly(years, x = ~iyear,y=~nkill,name="Victims During The Years" ,type = 'scatter', mode = 'lines')
+fig1 <-fig1 %>% layout(title="Victims During The Years",xaxis=list(title="Regions"),yaxis=list(title="Victims"))
+fig1
+ggplot(maink, aes(fill=region_txt, y=nkill, x=iyear)) + geom_bar(position="stack", stat="identity",width = 0.8)+labs(title="Victims Per Regions During The Years",x="Years",y="Victims",fill="Regions")
+```
+<p>Focusing on the regions</p>
+```{r echo=FALSE}
+#per group
+gt <- (maink %>%
+          group_by(region_txt) %>%
+          summarise(nkill=sum(nkill,na.rm=TRUE)))
+#world victims barplot
+fig2<-plot_ly(gt,x=~region_txt,y=~nkill,name="Victims per Region",color=I("red"),type="bar")
+fig2<-fig2 %>% layout(title="Victims Per Region",xaxis=list(title="Regions"),yaxis=list(title="Victims"))
+fig2
+```
+
+## Middle East & North Africa
+<b>A simple wordcloud to show which state is suffering the most.</b>
+```{r echo=FALSE}
+#single region dataset
+mena<-( dataset %>%
+             filter(region_txt=="Middle East & North Africa") %>%   
+             select(iyear,imonth,iday,country_txt,region_txt,latitude,longitude,provstate,city,attacktype1_txt,targtype1_txt,target1,gname,weaptype1_txt,nkill,nkillus)) 
+#mena
+#per group
+menav <- (mena %>%
+          group_by(country_txt) %>%
+          summarise(nkill=sum(nkill,na.rm=TRUE),nkillus=sum(nkillus,na.rm=TRUE)))
+#menav
+wordcloud(words = menav$country_txt, freq = menav$nkill, min.freq = 0, random.order=FALSE, rot.per=0.35,colors=brewer.pal(8, "Dark2"))
+```
+
+## IRAQ'S WARS
+<p>Iraq suffered more than 80.000 victims through the years. In the last twenty years they suffered two wars (during the 2003-2011 invasion and the ISIS proclamation of 2013-2017)</p>
+<br>
+```{r echo=FALSE}
+#four most suffering states
+mena_principal<-(mena %>%
+                 filter(country_txt=="Iraq"| country_txt=="Algeria" | country_txt=="Syria" | country_txt=="Yemen") %>%   
+                 select(iyear,imonth,iday,country_txt,region_txt,latitude,longitude,provstate,city,attacktype1_txt,targtype1_txt,target1,gname,weaptype1_txt,nkill,nkillus))
+#mena_principal
+#iraq dataset focusing on the victims
+iraq<-(maink %>%
+        filter(country_txt=="Iraq") %>%   
+        select(iyear,imonth,iday,country_txt,region_txt,latitude,longitude,provstate,city,attacktype1_txt,targtype1_txt,target1,gname,weaptype1_txt,nkill,nkillus))
+#the three wars
+iraqusawar<-(iraq %>%
+           group_by(iyear) %>%
+           summarise(nkill = sum(nkill,na.rm=TRUE),nkillus=sum(nkillus,na.rm = TRUE)) %>%
+           filter(iyear>=2003 & iyear<=2011))
+isisus<-(iraq %>%
+           group_by(iyear) %>%
+           summarise(nkill = sum(nkill,na.rm=TRUE),nkillus=sum(nkillus,na.rm = TRUE)) %>%
+           filter(iyear>=2011 & iyear<=2017))
+#add column war in the two datasets
+iraqusawar <-cbind(iraqusawar,war="Iraq War")
+isisus <-cbind(isisus,war="ISIS War")
+#sum of usa soldiers
+#sum(iraqusawar$nkillus,na.rm = TRUE)=255
+#sum(isisus$nkillus,na.rm = TRUE)=12
+#iraqusawar
+#isisus
+#combine two datasets
+iraqwar <-rbind(iraqusawar,isisus)
+#victims per war
+#aggregate(nkill~war,iraqusawar,sum)
+#aggregate(nkill~war,isisus,sum)
+#iraqwar
+# Compute the position of labels
+iraqwar <- iraqwar %>% 
+  arrange(desc(war)) %>%
+  mutate(prop = nkill / sum(iraqwar$nkill) *100) %>%
+  mutate(ypos = cumsum(prop)- 0.5*prop )
+#piechart
+ggplot(iraqwar, aes(x="", y=prop, fill=war)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="bottom") +
+  geom_text(aes(y = ypos, label = nkill), color = "black", size=2.5,nudge_x = 0.6,nudge_y = 0.5) +
+  scale_fill_brewer(palette="Set1") +
+  labs(title="Comparing the two wars",fill="Type of War:")
+```
+<ul>These two recent conflicts brought:
+  <li>26.616 civilian victims in the IRAQ war plus 255 USA soldiers.</li>
+  <li>53.336 civilian victims in the ISIS war plus 12 USA soldiers.</li>
+  <li>During these wars attacks 79.952 lives were lost.</li>
+</ul>
+## How did they die? Who killed these people? Where did these attacks happen?
+<p>The main weapons used in the attacks</p>
+```{r echo=FALSE}
+#filter per year and group per weapon and year
+iraqweapons <- (iraq %>%
+          filter(iyear>=2003 & nkill>=10)%>%
+          group_by(iyear,weaptype1_txt) %>%
+          summarise(nkill=sum(nkill,na.rm = TRUE)))
+#weapons graphic
+figw <- plot_ly(iraqweapons, x = ~iyear, y = ~nkill, color=~weaptype1_txt,colors = "Set1",type = 'bar')
+figw<-figw %>% layout(title="Victims Per Weapon",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+figw
+```
+<p>Here are the main terrorist groups</p> 
+```{r echo=FALSE}
+#iraq
+#per groups
+iraqgroups<-(iraq %>%
+              filter(nkill>=50 & iyear>=2003) %>%
+              group_by(iyear,gname) %>%
+              summarise(nkill=sum(nkill,na.rm=TRUE)) %>%
+              arrange(-iyear))
+#iraqgroups
+#sum(iraqgroups$nkill,na.rm=TRUE) = 79760
+fig3 <- plot_ly(iraqgroups, x = ~iyear,y=~nkill,color = ~gname,colors = "Set1")
+fig3<-fig3 %>% layout(title="Victims Per Groups",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+fig3
+```
+<p>Cities that had more than 100 victims.</p>
+```{r echo=FALSE}
+#locations
+#per groups iyear,latitude,longitude,city,nkill
+iraqcity<-(iraq%>%
+              group_by(iyear,city,latitude,longitude)%>%
+              summarise(nkill=sum(nkill,na.rm=TRUE))%>%
+              filter(nkill>=100)%>%
+              select(iyear,latitude,longitude,city,nkill)%>%
+              arrange(-iyear))
+#iraqcity
+#iraq map cities
+figiraq <- iraqcity 
+figiraq <- figiraq %>%
+  plot_ly(
+    lat = ~latitude,
+    lon = ~longitude,
+    marker = list(color = "red"),
+    type = 'scattermapbox',
+    hovertext=~city) 
+figiraq <- figiraq %>%
+  layout(
+    mapbox = list(
+      style = 'open-street-map',
+      zoom =5,
+      center = list(lon = 43.679291, lat = 33.223191)))
+figiraq
+```
+<ul>
+  <p>These are the primary cities and towns have been hit by terrorism:</p>
+  <li>Baghdad has reached 21.394 fatalities.</li>
+  <li>Mosul has reached 7.279 fatalities.</li>
+</ul>
+```{r echo=FALSE}
+#how terroris grow in the citys
+fig4 <- plot_ly(iraqcity, x = ~iyear,y=~nkill,color = ~city,colors = "Set1")
+fig4<-fig4 %>% layout(title="Victims Per City During the Years",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+fig4
+#sum of single city
+iraqcity<-(iraq%>%
+              group_by(city)%>%
+              summarise(nkill=sum(nkill,na.rm=TRUE))%>%
+              filter(nkill>=600))
+iraqcityfig <- plot_ly(iraqcity,type = 'scatterpolar',r = ~nkill,theta = ~city,fill = 'toself',name="Victims Per City/Town") 
+iraqcityfig<- iraqcityfig %>% layout(polar = list(radialaxis = list(visible = T,range = c(0,5000))),showlegend = FALSE,(title="Victims Per City/Town"))
+iraqcityfig
+```
+
+## South Asia
+```{r echo=FALSE}
+#single region dataset
+sa<-( dataset %>%
+             filter(region_txt=="South Asia") %>%   
+             select(iyear,imonth,iday,country_txt,region_txt,latitude,longitude,provstate,city,attacktype1_txt,targtype1_txt,target1,gname,weaptype1_txt,nkill,nkillus)) 
+#sa
+#per gname
+sav <- (sa %>%
+          group_by(country_txt) %>%
+          summarise(nkill=sum(nkill,na.rm=TRUE),nkillus=sum(nkillus,na.rm=TRUE)))
+#sav
+#menav
+wordcloud(words = sav$country_txt, freq = sav$nkill, min.freq = 0, random.order=FALSE, rot.per=0.35,colors=brewer.pal(8, "Dark2"))
+```
+
+## Afghanistan, India, Sri Lanka and Pakistan
+<p>These four states, as we saw before, are the most suffering.<p>
+```{r echo=FALSE}
+sav <-(sav %>% filter(nkill>10000))
+fig5<-plot_ly(sav,x=~country_txt,y=~nkill,name="Victims per Country",color=I("red"),type="bar")
+fig5<-fig5 %>% layout(title="Victims per Country",xaxis=list(title="Regions"),yaxis=list(title="Victims"))
+fig5
+```
+## How did they die? Who killed these people? Where did these attacks happen?
+<p>The main weapons used in the attacks.</p>
+```{r echo=FALSE}
+#weapons
+saweapons <- (sa %>%
+                filter(nkill>=10)%>%
+                group_by(iyear,weaptype1_txt) %>%
+                summarise(nkill=sum(nkill,na.rm = TRUE)))
+#saweapons
+#weapons
+saw <- plot_ly(saweapons, x = ~iyear, y = ~nkill, color=~weaptype1_txt,colors = "Set1",type = 'bar')
+saw<-saw %>% layout(title="Victims Per Weapon",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+saw
+```
+<p>Here are the main terrorist groups.</p>
+```{r echo=FALSE}
+#per gname
+sagroups<-(sa %>%
+              group_by(iyear,gname) %>%
+              summarise(nkill=sum(nkill,na.rm=TRUE)) %>%
+              filter(nkill>=100) %>%
+              arrange(-nkill))
+#sagroups
+fig5 <- plot_ly(data = sagroups, x = ~iyear, y = ~nkill, color = ~gname,colors="Set1")
+fig5 <- fig5 %>% layout(title="Victims Per Group",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+fig5
+```
+<p>Cityies that had more than 100 victims.</p>
+```{r echo=FALSE}
+#location
+sacity <-(sa %>%
+          group_by(iyear,city,latitude,longitude)%>%
+              summarise(nkill=sum(nkill,na.rm=TRUE))%>%
+              filter(nkill>=100)%>%
+              select(iyear,latitude,longitude,city,nkill)%>%
+              arrange(-iyear))
+#sacity
+#south asia map
+figsa <- sacity 
+figsa <- figsa %>%
+  plot_ly(
+    lat = ~latitude,
+    lon = ~longitude,
+    marker = list(color = "red"),
+    type = 'scattermapbox',
+    hovertext = sacity$city)
+figsa <- figsa %>%
+  layout(
+    mapbox = list(
+      style = 'open-street-map',
+      zoom =3,
+      center = list(lon = 67.709953, lat = 33.93911)))
+figsa
+```
+<p>These are the primary cities and towns hit by terrorism.</p>
+```{r echo=FALSE}
+#how terroris grow in the citys
+fig6 <- plot_ly(sacity, x = ~iyear,y=~nkill,color = ~city,colors = "Set1")
+fig6<-fig6 %>% layout(title="Victims Per City During the Years",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+fig6
+#sum of single city
+sacityg<-(sa%>%
+              group_by(city)%>%
+              summarise(nkill=sum(nkill,na.rm=TRUE))%>%
+              filter(nkill>=600))
+fig7 <- plot_ly(sacityg,type = 'scatterpolar',r = ~nkill,theta = ~city,fill = 'toself',name="Victims Per City/Town") 
+fig7<- fig7 %>% layout(polar = list(radialaxis = list(visible = T,range = c(0,5000))),showlegend = FALSE,(title="Victims Per City/Town"))
+fig7
+```
+## Sub-Saharan Africa
+```{r echo=FALSE}
+#single region dataset
+ssa<-(dataset %>%
+             filter(region_txt=="Sub-Saharan Africa") %>%   
+             select(iyear,imonth,iday,country_txt,region_txt,latitude,longitude,provstate,city,attacktype1_txt,targtype1_txt,target1,gname,weaptype1_txt,nkill,nkillus))
+#ssa
+#per country
+ssav <- (ssa %>%
+          group_by(country_txt) %>%
+          summarise(nkill=sum(nkill,na.rm=TRUE),nkillus=sum(nkillus,na.rm=TRUE))%>%
+          arrange(country_txt))
+#ssav
+#menav
+wordcloud(words =ssav$country_txt, freq = ssav$nkill, min.freq = 0, random.order=FALSE, rot.per=0.35,colors=brewer.pal(8, "Dark2"))
+```
+
+## Burundi, Democratic Republic of the Congo, Nigeria, Somalia and Sudan 
+```{r echo=FALSE}
+ssav <-(ssav %>% filter(nkill>=3980))
+fig8<-plot_ly(ssav,x=~country_txt,y=~nkill,name="Victims per Country",color=I("red"),type="bar")
+fig8<-fig8 %>% layout(title="Victims per Country",xaxis=list(title="Regions"),yaxis=list(title="Victims"))
+fig8
+```
+## How did they die? Who killed these people? Where did these attacks happen?
+<p>The main weapons used in the attacks.</p>
+```{r echo=FALSE}
+#weapons
+ssaweapons <- (ssa %>%
+                filter(nkill>0)%>%
+                group_by(iyear,weaptype1_txt) %>%
+                summarise(nkill=sum(nkill,na.rm = TRUE)))
+#ssaweapons
+#weapons
+ssaw <- plot_ly(ssaweapons, x = ~iyear, y = ~nkill, color=~weaptype1_txt,colors = "Set1",type = 'bar')
+ssaw<-ssaw %>% layout(title="Victims Per Weapon",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+ssaw
+```
+<p>Here are the principal terrorist groups.</p>
+```{r echo=FALSE}
+#per gname
+ssagroups<-(ssa %>%
+              group_by(iyear,gname) %>%
+              summarise(nkill=sum(nkill,na.rm=TRUE)) %>%
+              filter(nkill>=200) %>%
+              arrange(-nkill))
+#ssagroups
+fig8 <- plot_ly(data = ssagroups, x = ~iyear, y = ~nkill, color = ~gname, colors = "Set1")
+fig8 <- fig8 %>% layout(title="Victims Per Group",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+fig8
+```
+<p>Cities and towns with more than 50 victims.</p>
+```{r echo=FALSE}
+#location
+ssacity <-(ssa %>%
+          group_by(iyear,city,latitude,longitude)%>%
+              summarise(nkill=sum(nkill,na.rm=TRUE))%>%
+              filter(nkill>=50)%>%
+              select(iyear,latitude,longitude,city,nkill)%>%
+              arrange(-iyear))
+#ssacity
+#sub-sharan africa map
+figssa <- ssacity
+figssa <- figssa %>%
+  plot_ly(
+    lat = ~latitude,
+    lon = ~longitude,
+    marker = list(color = "red"),
+    type = 'scattermapbox',
+    hovertext = ssacity$city) 
+figssa <- figssa %>%
+  layout(
+    mapbox = list(
+      style = 'open-street-map',
+      zoom =2,
+      center = list(lon = 8.675277, lat = 9.081999)))
+figssa
+```
+<p>These are the primary cities and towns hit by terrorism.</p>
+```{r echo=FALSE}
+ssacity <- ssacity %>% filter(nkill>=200)
+fig9 <- plot_ly(ssacity, x = ~iyear,y=~nkill,color = ~city,colors = "Set1")
+fig9<-fig9 %>% layout(title="Victims Per City During the Years",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+fig9
+#sum of single city 5932
+ssacityg<-(ssa%>%
+              group_by(city)%>%
+              summarise(nkill=sum(nkill,na.rm=TRUE))%>%
+              filter(nkill>=500))
+fig10 <- plot_ly(ssacityg,type = 'scatterpolar',r = ~nkill,theta = ~city,fill = 'toself',name="Victims Per City/Town") 
+fig10<- fig10 %>% layout(polar = list(radialaxis = list(visible = T,range = c(0,5000))),showlegend = FALSE,(title="Victims Per City/Town"))
+fig10
+```
+## Which is the state that suffered the most in a single day? Which is the city that sufferd the most during the years?
+<p>The deadliest day for a single terrorist attack.</p>
+```{r echo=FALSE}
+#worstday
+worst_day <- (maink %>%
+              filter(nkill>=500) %>%
+              group_by(iday,imonth,iyear,city)%>%
+              summarise(nkill=sum(nkill,na.rm = TRUE))%>%
+              arrange(-nkill)
+)
+#worst_day
+worst_fig <- plot_ly(worst_day,type = 'scatterpolar',r = ~nkill,theta = ~city,fill = 'toself') 
+worst_fig<- worst_fig %>% layout(polar = list(radialaxis = list(visible = T,range = c(0,3000))),showlegend = F)
+worst_fig
+```
+<p>The worst cities.</p>
+```{r echo=FALSE}
+#worstcity
+worstcity <- (maink %>%
+              group_by(city)%>%
+              summarise(nkill=sum(nkill,na.rm = TRUE))%>%
+              filter(nkill>=1000)%>%  
+              arrange(-nkill))
+#worstcity
+city <- plot_ly(worstcity, x=~city,y=~nkill, type="bar", name="The Worst City",colors=I("red"))
+city <- city %>% layout(title="The City With More Victims",xaxis=list(title="Years"),yaxis=list(title="Victims"))
+city
+```
