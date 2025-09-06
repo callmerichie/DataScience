@@ -1,4 +1,4 @@
-# DataScience
+# DataAnalysis
 DataScienceProject
 dataset from 1970-2017
 https://www.kaggle.com/START-UMD/gtd
